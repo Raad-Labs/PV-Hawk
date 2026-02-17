@@ -1,129 +1,94 @@
-FROM tensorflow/tensorflow:1.15.2-gpu-py3
+###############################################################################
+# PV-Hawk  —  Raad Labs fork
+#
+# CUDA 11.8 / cuDNN 8 / Python 3.10 / TensorFlow 2.14
+# Works on RTX 40X0 (sm_89 Ada Lovelace) GPUs.
+# Python 3.10 chosen so the vendored pybind11 in g2opy and OpenSfM compiles
+# without patching (PyFrameObject became opaque in 3.11).
+###############################################################################
+
+FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
 
 WORKDIR /
 
-# Fix for GPG key error (see https://github.com/NVIDIA/nvidia-docker/issues/1632)
-RUN rm /etc/apt/sources.list.d/cuda.list
-RUN rm /etc/apt/sources.list.d/nvidia-ml.list
+ARG DEBIAN_FRONTEND=noninteractive
 
-# OpenCV & matplotlib dependencies
+# ── Core build tools, Python 3.10, OpenCV / matplotlib deps ─────────────
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        cmake \
+        git \
+        curl \
+        pkg-config \
+        python3 \
+        python3-dev \
+        python3-pip \
+        python3-tk \
         libsm6 \
         libxext6 \
         libxrender-dev \
-        python3-tk && \
-    rm -rf /var/lib/apt/lists/*
-
-# Install Python packages
-COPY requirements.txt /
-RUN pip3 install --upgrade pip
-RUN pip3 install -r /requirements.txt
-
-
-##############################################################################
-#
-#   Pangolin Viewer
-#
-##############################################################################
-
-# Install pangoling dependencies
-RUN apt-get update && \
-    apt-get install -y \
-        git \
-        pkg-config \
         libgl1-mesa-dev \
-        libglew-dev \
-        cmake \
-        libpython2.7-dev \
-        libegl1-mesa-dev \
-        libwayland-dev \
-        libxkbcommon-dev \
-        wayland-protocols \
-        libeigen3-dev \
-        doxygen && \
-    rm -rf /var/lib/apt/lists/*
+        libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN python3 -m pip install pyopengl Pillow pybind11
-
-WORKDIR /home
-RUN git clone https://github.com/lukasbommes-forked-projects/Pangolin.git pangolin
-
-WORKDIR /home/pangolin
-RUN git submodule init && git submodule update
-
-WORKDIR /home/pangolin/build
-RUN cmake .. && \
-    cmake --build . && \
-    cmake --build . --target doc
-
-ENV NVIDIA_VISIBLE_DEVICES ${NVIDIA_VISIBLE_DEVICES:-all}
-ENV NVIDIA_DRIVER_CAPABILITIES ${NVIDIA_DRIVER_CAPABILITIES:+$NVIDIA_DRIVER_CAPABILITIES,}graphics
+# ── Python packages ──────────────────────────────────────────────────────
+COPY requirements.txt /
+RUN pip3 install --upgrade pip && \
+    pip3 install tensorflow==2.14.0 && \
+    pip3 install -r /requirements.txt
 
 
 ###############################################################################
 #
-#          Install OpenSfM dependencies
+#          OpenSfM dependencies (Eigen, glog, OpenCV, SuiteSparse, Ceres)
 #
 ###############################################################################
 
-ARG DEBIAN_FRONTEND=noninteractive
-
-# Install apt-getable dependencies
-RUN apt-get update \
-    && apt-get install -y \
-        build-essential \
-        cmake \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
         libeigen3-dev \
         libgoogle-glog-dev \
         libopencv-dev \
         libsuitesparse-dev \
-        curl \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    && rm -rf /var/lib/apt/lists/*
 
-
-# Install Ceres 2
-RUN \
-    mkdir -p /source && cd /source && \
+# Ceres 2 (disable TBB — tbb_stddef.h moved to oneapi/tbb on Ubuntu 22.04)
+RUN mkdir -p /source && cd /source && \
     curl -L http://ceres-solver.org/ceres-solver-2.0.0.tar.gz | tar xz && \
     cd /source/ceres-solver-2.0.0 && \
     mkdir -p build && cd build && \
-    cmake .. -DCMAKE_C_FLAGS=-fPIC -DCMAKE_CXX_FLAGS=-fPIC -DBUILD_EXAMPLES=OFF -DBUILD_TESTING=OFF && \
+    cmake .. -DCMAKE_C_FLAGS=-fPIC -DCMAKE_CXX_FLAGS=-fPIC \
+             -DBUILD_EXAMPLES=OFF -DBUILD_TESTING=OFF \
+             -DCMAKE_DISABLE_FIND_PACKAGE_TBB=ON && \
     make -j4 install && \
     cd / && rm -rf /source/ceres-solver-2.0.0
 
 
-##############################################################################
+###############################################################################
 #
-#   pyg2o hyper graph optimizer
+#   pyg2o graph optimizer
 #
-##############################################################################
+###############################################################################
 
 RUN apt-get update && \
-  apt-get install -y \
-    cmake \
-    git \
-    build-essential \
-    libeigen3-dev \
-    libsuitesparse-dev \
-    qtdeclarative5-dev \
-  && apt-get clean \
-  && rm -rf /var/lib/apt/lists/*
+    apt-get install -y --no-install-recommends \
+        qtdeclarative5-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /code
 RUN git clone https://github.com/lukasbommes-forked-projects/g2opy.git
 
 WORKDIR /code/g2opy/build
-  RUN cmake .. \
-  && make -j12 \
-  && make install -j12 \
-  && ldconfig
+RUN cmake .. \
+    && make -j12 \
+    && make install -j12 \
+    && ldconfig
 
 WORKDIR /code/g2opy/
-RUN python setup.py install
-
-WORKDIR /code/g2opy
+RUN python3 setup.py install
 
 
 ###############################################################################
@@ -135,7 +100,7 @@ WORKDIR /code/g2opy
 COPY ./extractor/mapping/OpenSfM /pvextractor/extractor/mapping/OpenSfM
 
 WORKDIR /pvextractor/extractor/mapping/OpenSfM
-RUN python setup.py build
+RUN python3 setup.py build
 WORKDIR /pvextractor
 
 
@@ -148,5 +113,8 @@ WORKDIR /pvextractor
 COPY ./extractor/segmentation/Mask_RCNN /pvextractor/extractor/segmentation/Mask_RCNN
 
 WORKDIR /pvextractor/extractor/segmentation/Mask_RCNN
-RUN python setup.py install
+RUN pip3 install -e .
 WORKDIR /pvextractor
+
+ENV NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}
+ENV NVIDIA_DRIVER_CAPABILITIES=${NVIDIA_DRIVER_CAPABILITIES:+$NVIDIA_DRIVER_CAPABILITIES,}graphics

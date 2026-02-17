@@ -1,0 +1,16 @@
+---
+# Minimal end-to-end test using the bundled integration test data.
+# Frames are pre-split, so we start at segmentation.
+tasks:
+  - segment_pv_modules
+  - track_pv_modules
+  - compute_pv_module_quadrilaterals
+
+groups:
+  - name: test_run
+    ir_or_rgb: ir
+    settings:
+      segment_pv_modules:
+        gpu_count: 1
+        images_per_gpu: 8
+        detection_min_confidence: 0.9

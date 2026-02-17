@@ -18,14 +18,14 @@ import extractor.segmentation.Mask_RCNN.mrcnn.model as modellib
 from extractor.common import Capture, delete_output
 from extractor.segmentation.configs import PVConfigIR, PVConfigRGB
 
-# Bugfix taken from:
-# https://github.com/tensorflow/tensorflow/issues/24828#issuecomment-464910864
-# Moved this into Celery task, otherwise celery worker hangs
-from tensorflow.compat.v1 import ConfigProto
-from tensorflow.compat.v1 import InteractiveSession
-tf_config = ConfigProto()
-tf_config.gpu_options.allow_growth = True
-session = InteractiveSession(config=tf_config)
+# TF2: enable GPU memory growth instead of allocating all VRAM upfront
+import tensorflow as tf
+gpus = tf.config.list_physical_devices('GPU')
+for gpu in gpus:
+    try:
+        tf.config.experimental.set_memory_growth(gpu, True)
+    except RuntimeError:
+        pass  # must be set before GPUs are initialised
 
 
 logger = logging.getLogger(__name__)

@@ -5,8 +5,14 @@ import subprocess
 import sys
 
 import setuptools
-from sphinx.setup_command import BuildDoc
-from wheel.bdist_wheel import bdist_wheel
+try:
+    from sphinx.setup_command import BuildDoc
+except (ImportError, ModuleNotFoundError):
+    BuildDoc = None
+try:
+    from wheel.bdist_wheel import bdist_wheel
+except (ImportError, ModuleNotFoundError):
+    bdist_wheel = None
 
 VERSION = (0, 5, 2)
 
@@ -15,12 +21,15 @@ def version_str(version):
     return ".".join(map(str, version))
 
 
-class platform_bdist_wheel(bdist_wheel):
-    """Patched bdist_well to make sure wheels include platform tag."""
+if bdist_wheel is not None:
+    class platform_bdist_wheel(bdist_wheel):
+        """Patched bdist_well to make sure wheels include platform tag."""
 
-    def finalize_options(self):
-        bdist_wheel.finalize_options(self)
-        self.root_is_pure = False
+        def finalize_options(self):
+            bdist_wheel.finalize_options(self)
+            self.root_is_pure = False
+else:
+    platform_bdist_wheel = None
 
 
 def configure_c_extension():
@@ -80,16 +89,9 @@ setuptools.setup(
         ]
     },
     cmdclass={
-        "bdist_wheel": platform_bdist_wheel,
-        "build_doc": BuildDoc,
-    },
-    command_options={
-        "build_doc": {
-            "project": ("setup.py", "OpenSfM"),
-            "version": ("setup.py", version_str(VERSION[:2])),
-            "release": ("setup.py", version_str(VERSION)),
-            "source_dir": ("setup.py", "doc/source"),
-            "build_dir": ("setup.py", "build/doc"),
-        }
+        k: v for k, v in {
+            "bdist_wheel": platform_bdist_wheel,
+            "build_doc": BuildDoc,
+        }.items() if v is not None
     },
 )
