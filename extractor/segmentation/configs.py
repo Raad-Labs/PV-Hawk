@@ -2,7 +2,7 @@ import numpy as np
 
 try:
     from extractor.segmentation.Mask_RCNN.mrcnn.config import Config
-except ModuleNotFoundError:
+except (ModuleNotFoundError, ImportError):
     from Mask_RCNN.mrcnn.config import Config
 
 

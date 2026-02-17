@@ -1,38 +1,33 @@
-numpy==1.18.1
-opencv-python==4.2.0.34
-networkx==2.4
-matplotlib==3.3.0
-scipy==1.5.2
-tqdm==4.48.2
-tifffile==2020.9.3
-pytransform3d==1.9.1
-Shapely==1.7.1
-jupyterlab
+numpy>=1.23,<1.25
+opencv-python>=4.8,<4.10
+networkx>=3.1,<4
+matplotlib>=3.7,<4
+scipy>=1.11,<2
+tqdm>=4.65
+tifffile>=2023.7
+pytransform3d>=3.3,<4
+Shapely>=2.0,<3
 
 # for testing
-deepdiff==5.7.0
-hypothesis[numpy]==6.31.6
+deepdiff>=6.3,<7
+hypothesis[numpy]>=6.82
 
-# additional for Mask R-CNN
-scikit-image==0.16.2
-cython==0.29.21
-keras==2.1.5
-h5py==2.10.0
-imgaug==0.2.9
-IPython[all]
+# additional for Mask R-CNN (standalone keras removed — using tf.keras)
+scikit-image>=0.21,<1
+cython>=3.0
+h5py>=3.9,<4
 
 # additional for OpenSfM
-cloudpickle==0.4.0
-exifread==2.1.2
-flask==1.1.2
-fpdf2==2.4.2
-joblib==0.14.1
-Pillow==8.3.1
-pyproj==2.5.0
-pytest==3.0.7
-python-dateutil==2.8.2
-pyyaml==5.4
-Sphinx==3.4.3
-six==1.16.0
-xmltodict==0.10.2
+cloudpickle>=2.2
+exifread>=3.0
+flask>=2.3,<3
+fpdf2>=2.7
+joblib>=1.3
+Pillow>=10.0,<11
+pyproj>=3.6,<4
+pytest>=7.4
+python-dateutil>=2.8
+pyyaml>=6.0
+six>=1.16
+xmltodict>=0.13
 wheel
