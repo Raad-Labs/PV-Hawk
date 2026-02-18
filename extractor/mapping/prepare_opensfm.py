@@ -141,7 +141,7 @@ def select_frames_gps_visual(cap, gps, orb_detector, bf_matcher, frame_selection
                 bf_matcher, last_des, des, last_kps, kps, 
                 distance_threshold=match_distance_thres)
             
-            if last_pts.shape[1] > 0 and current_pts.shape[1] > 0:
+            if last_pts.shape[1] >= 4 and current_pts.shape[1] >= 4:
                 
                 # estimate motion with homography
                 transform, _ = cv2.findHomography(

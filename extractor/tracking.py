@@ -199,9 +199,13 @@ class Tracker:
         if last_pts.shape[1] == 0 or current_pts.shape[1] == 0:
             return np.zeros(shape=(0, 2), dtype=np.float64)
 
+        num_pts = last_pts.shape[1]
+
         # estimate a transformation (homography or affine)
         # and predict module centers with it
         if self.motion_model == "homography":
+            if num_pts < 4:
+                return np.zeros(shape=(0, 2), dtype=np.float64)
             transform, _ = cv2.findHomography(
                 last_pts, current_pts, method=cv2.RANSAC)
             if transform is None:
@@ -210,6 +214,8 @@ class Tracker:
                 previous_points.reshape(-1, 1, 2), transform)
 
         elif self.motion_model == "affine":
+            if num_pts < 3:
+                return np.zeros(shape=(0, 2), dtype=np.float64)
             transform, _ = cv2.estimateAffine2D(
                 last_pts, current_pts, method=cv2.RANSAC)
             if transform is None:
@@ -218,6 +224,8 @@ class Tracker:
                 previous_points.reshape(-1, 1, 2), transform)
 
         elif self.motion_model == "affine_partial":
+            if num_pts < 2:
+                return np.zeros(shape=(0, 2), dtype=np.float64)
             transform, _ = cv2.estimateAffinePartial2D(
                 last_pts, current_pts, method=cv2.RANSAC)
             if transform is None:
