@@ -31,9 +31,11 @@ logger = logging.getLogger(__name__)
 
 def line(p1, p2):
     """Converts line from a 2-point representation into a 3-parameter representation."""
-    A = (p1[1] - p2[1])
-    B = (p2[0] - p1[0])
-    C = (p1[0]*p2[1] - p2[0]*p1[1])
+    p1 = [float(v) for v in p1]
+    p2 = [float(v) for v in p2]
+    A = p1[1] - p2[1]
+    B = p2[0] - p1[0]
+    C = p1[0]*p2[1] - p2[0]*p1[1]
     return A, B, -C
 
 
@@ -79,7 +81,7 @@ def find_enclosing_polygon(convex_hull, num_vertices=4):
         Enclosing polygon (`numpy.ndarray`) of shape [num_vertices, 0, 2] and
         dtype int32.
     """
-    hull = np.copy(convex_hull)
+    hull = np.copy(convex_hull).astype(np.float32)
     while len(hull) > num_vertices:
         # get shortest edge
         edge_lenghts = []
@@ -123,14 +125,31 @@ def find_enclosing_polygon(convex_hull, num_vertices=4):
         hull_tmp = cv2.convexHull(hull, clockwise=False, returnPoints=True)
         if len(hull_tmp) > num_vertices:
             hull = hull_tmp
-    return hull
+    return hull.astype(np.int32)
+
+
+def min_area_quad(convex_hull):
+    """Compute minimum area bounding rectangle via cv2.minAreaRect.
+    Returns contour-format array [4, 1, 2] int32, or None on failure."""
+    try:
+        rect = cv2.minAreaRect(convex_hull)
+        box = cv2.boxPoints(rect)
+        area = cv2.contourArea(box.reshape(-1, 1, 2).astype(np.int32))
+        if area < 1:
+            return None
+        return box.reshape(-1, 1, 2).astype(np.int32)
+    except Exception:
+        return None
 
 
 def compute_iou(convex_hull, quadrilateral):
     """Computes the IoU of the convex hull and
     the estimated bounding quadrilateral."""
+    quad_area = cv2.contourArea(quadrilateral)
+    if quad_area < 1:
+        return 0.0
     intersect_area, _ = cv2.intersectConvexConvex(convex_hull, quadrilateral)
-    iou = intersect_area / cv2.contourArea(quadrilateral)
+    iou = intersect_area / quad_area
     return iou
 
 
@@ -185,7 +204,9 @@ def run(frames_root, inference_root, tracks_root, output_dir, ir_or_rgb, min_iou
         for mask, mask_name in zip(masks, mask_names):
             convex_hull, contour = contour_and_convex_hull(mask)
             center = compute_mask_center(convex_hull, contour, method=1)
-            quad = find_enclosing_polygon(convex_hull, num_vertices=4)
+            quad = min_area_quad(convex_hull)
+            if quad is None:
+                continue
             iou = compute_iou(convex_hull, quad)
             if iou > min_iou:
                 quads.append(quad)
